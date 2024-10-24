@@ -1,0 +1,3 @@
+[submodule "dependencies/smp3d"]
+	path = dependencies/smp3d
+	url = https://github.com/jbenzakoun/segmentation_models_pytorch_3d.git
