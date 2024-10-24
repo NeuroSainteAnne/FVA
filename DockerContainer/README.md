@@ -21,8 +21,9 @@ You can run the docker container using the following command, and replacing `/my
 ```
 docker run --rm --gpus all -v /my/local/folder:/app/data FVV
 ```
+The --gpus flag allows the container to have access to your GPU for fast inference.
 
-The folder must have at least b0 and b1000 nifti images
+The inference folder must have at least b0 and b1000 nifti images, as follows:
 
 ```
 /my/local/folder
