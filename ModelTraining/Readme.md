@@ -41,7 +41,11 @@ input_data/
 Usage:
 
 ```
-python 1-DataPreparation.py
+python 1-DataPreparation.py  [-k KFOLD] [-v VALID_PROP] 
+
+Arguments:
+   -k, --kfolds           : Number of kfolds (default: 10)
+   -v, --valid_proportion : Proportion of valid/train in each fold (default: 0.2)
 ```
 
 ## 2a. Training
