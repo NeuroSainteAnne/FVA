@@ -57,7 +57,7 @@ os.makedirs("saved_models_ONNX", exist_ok=True)
 # Loop through each selected model and convert it to ONNX format
 for i, m in enumerate(list_models):
     # Load the PyTorch model
-    model = torch.load(m).module
+    model = torch.load(m, weights_only=False).module
     model.eval()   # Set the model to evaluation mode
     
     # Create a dummy input tensor with the expected dimensions
