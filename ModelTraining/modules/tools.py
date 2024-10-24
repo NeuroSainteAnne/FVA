@@ -26,7 +26,8 @@ def maskcompute(b0, b1000):
     b1000_mask, mask1000 = median_otsu(b1000, 1, 1)
     # Apply morphological operations and combine masks to create a final brain mask
     mask = binary_fill_holes(morphology.binary_dilation(brain_component(mask0 & mask1000)))
-    mask = mask & (b0 >= 1) & (b1000 >= 1)
+    if b0.min() >= 0: mask = mask & (b0 >= 1)
+    if b1000.min() >= 0: mask = mask & (b1000 >= 1)
     return mask
     
 # Perform quick normalisation of the input volume based on the given mask
@@ -131,19 +132,33 @@ def nib2rescaled(b0path, b1000path, maskpath=None, roi1path=None, roi2path=None)
 
     return zlen, volvox, scaling, norm_b0, norm_b1000, rescaled_mask, rescaled_roi1, rescaled_roi2
 
+def quick_zstack(b0n,b1000n,zselector=[-3, -2, -1, 0, 1, 2, 3]):
+    x = np.stack([b1000n.squeeze().transpose((2, 0, 1))[:,np.newaxis], 
+                  b0n.squeeze().transpose((2, 0, 1))[:,np.newaxis]], axis=1)
+    paddingval = np.min(x)
+    paddingval = np.tile(paddingval, (2, 256, 256))[np.newaxis,:,np.newaxis]
+    all_stacked = []
+    for index in range(x.shape[0]):
+        stacked = []
+        for slindx in zselector:
+            if index+slindx < 0 or index+slindx >= x.shape[0]:
+                stacked.append(paddingval)
+            else:
+                stacked.append(x[index+slindx][np.newaxis])
+        all_stacked.append(np.concatenate(stacked, axis=2))
+    return np.concatenate(all_stacked, axis=0).astype(np.float32)
+
 # Compute a color overlay NIfTI image from the given mask and visualization data
-def compute_color_nib(b1000nib, maskdata, blobdata, vizdata, maxvizval=1,
+def compute_color_nib(b1000nib, maskdata, blobdata, vizdata, maxvizval=1, cut=0.5,
                      maskintensity=0.33, strokeintensity=0.66, vizintensity=0.66):
-    cut = float(maxvizval)/2
-    divide = float(maxvizval)
     b1000data = b1000nib.get_fdata()
 
     # Normalize b1000 data to [0, 256] range
     dwirange = b1000data.max() - b1000data.min()
-    dwidata = np.array(256*(b1000data-b1000data.min())/dwirange).astype(np.uint8)
+    dwidata = np.array(256*(b1000data-b1000data.min())/dwirange).astype(float)
     
     # Create an empty RGB image initialized with the grayscale data
-    rgb_data = np.zeros(maskdata.shape+(3,), dtype=np.uint32)
+    rgb_data = np.zeros(maskdata.shape+(3,), dtype=float)
     rgb_data[...,0] = dwidata
     rgb_data[...,1] = dwidata
     rgb_data[...,2] = dwidata
@@ -166,7 +181,7 @@ def compute_color_nib(b1000nib, maskdata, blobdata, vizdata, maxvizval=1,
     # Update RGB values based on mask and blob outlines and visualization data
     rgb_data[maskdataoutline,1] = rgb_data[maskdataoutline,1]+(256-rgb_data[maskdataoutline,1])*maskintensity
     rgb_data[blobdataoutline,2] = rgb_data[blobdataoutline,2]+(256-rgb_data[blobdataoutline,2])*strokeintensity
-    rgb_data[...,0] = rgb_data[...,0]+(256-rgb_data[...,0])*vizintensity*(vizdata/divide)
+    rgb_data[...,0] = rgb_data[...,0]+(256-rgb_data[...,0])*vizintensity*(vizdata/maxvizval)
     
     # Ensure RGB values are in valid range
     rgb_data[rgb_data<0] = 0
