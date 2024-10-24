@@ -5,3 +5,4 @@ saved_models_ONNX/
 .ipynb*
 wandb/
 input_data/Subject*
+input_data/Patient*
