@@ -3,12 +3,12 @@
 This repository contains a series of Python scripts designed for processing, training, model conversion, and testing in the context of medical imaging analysis. Below is a comprehensive description of each script in the pipeline, explaining their specific purpose and the overall workflow.
 
 ## Table of Contents
-[Environment](#0-environment)
-[1-DataPreparation.py](#1-data-preparation)
-[2a-Training.py](#2a-training)
-[2b-TrainingKFolds.py](#2b-training-k-folds)
-[3-ConvertModels.py](#3-convert-models)
-[4-InferenceTest.py](#4-inference-test)
+* [Environment](#0-environment)
+* [1-DataPreparation.py](#1-data-preparation)
+* [2a-Training.py](#2a-training)
+* [2b-TrainingKFolds.py](#2b-training-k-folds)
+* [3-ConvertModels.py](#3-convert-models)
+* [4-InferenceTest.py](#4-inference-test)
 
 ## 0. Environment
 
