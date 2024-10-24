@@ -3,12 +3,13 @@
 This repository contains a series of Python scripts designed for processing, training, model conversion, and testing in the context of medical imaging analysis. Below is a comprehensive description of each script in the pipeline, explaining their specific purpose and the overall workflow.
 
 ## Table of Contents
-[Environment](#0-environment)
-[1-DataPreparation.py](#1-data-preparation)
-[2a-Training.py](#2a-training)
-[2b-TrainingKFolds.py](#2b-training-k-folds)
-[3-ConvertModels.py](#3-convert-models)
-[4-InferenceTest.py](#4-inference-test)
+* [Environment](#0-environment)
+* [1-DataPreparation.py](#1-data-preparation)
+* [2a-Training.py](#2a-training)
+* [2b-TrainingKFolds.py](#2b-training-k-folds)
+* [3-ConvertModels.py](#3-convert-models)
+* [4-InferenceTest.py](#4-inference-test)
+* [5-DirectInference.py](#5-direct-inference)
 
 ## 0. Environment
 
@@ -148,3 +149,49 @@ Usage:
 python 4-InferenceTest.py
 ```
 
+## 5. Direct Inference
+
+### Script: `5-DirectInference.py`
+
+The `5-DirectInference.py` script runs the inference process using the converted ONNX models on an external validation dataset. It only need b0 and b1000 nifti to perform its inference.
+
+The input data should be organized in an folder with the following structure:
+```
+inference_folder/
+    ├── Patient_1/
+    │     ├── b0.nii.gz
+    │     └── b1000.nii.gz
+    ├── Patient_2/
+    │     ├── b0.nii.gz
+    │     └── b1000.nii.gz
+    └── ...
+```
+
+Usage:
+
+```
+python 5-DirectInference.py  [-d inference_dir]
+
+Arguments:
+   -d, --inference_dir   : Folder on which the inference will be performed
+   -f, --favorite        : GPU or CPU (default: GPU)
+```
+
+After script running, the following files will be created:
+
+```
+inference_folder/
+    ├── Patient_1/
+    │     ├── predictions.nii.gz : a NIFTI file with 3 volumes indexed in the 4th dimension: brain mask prediction, stroke area prediction and flair visibility prediction
+    │     ├── heatmap.nii.gz : a RGB NIFTI file with a synthesis of these 3 volumes
+    │     └── results.txt : a text file with prediction scalars
+    ├── Patient_2/
+    │     └── ...
+    ├── ...
+    └── results.csv : a csv-file synthesizing all numeric results
+```
+
+The following scalars are given:
+* BrainMaskVoxels, StrokeBlobVoxels, FlairVizVoxels: number of voxels for prediction. Note that these corresponds to voxels after rescaling to 256x256, so different from the original voxel size
+* VoxVolume after rescaling : individual volume of 1 voxel after rescaling to 256x256 (in mL)
+* BrainMaskVolume, StrokeBlobVolume, FlairVizVolume : volume metrics for prediction
