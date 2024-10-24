@@ -1,0 +1,30 @@
+name: FVVenv
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.12.7
+  - pytorch=2.5.0
+  - torchvision=0.20.0
+  - torchaudio=2.5.0
+  - pytorch-cuda=12.4
+  - numpy=1.26.4
+  - nibabel=5.1.0
+  - segmentation-models-pytorch=0.3.4
+  - scipy=1.14.1
+  - tqdm=4.66
+  - scikit-learn=1.5.2
+  - pandas=2.2.3
+  - psutil=6.0.0
+  - matplotlib=3.9.2
+  - wandb=0.18.5
+  - onnx=1.16.2
+  - onnxruntime=1.18.1
+  - dipy=1.9.0
+  - seaborn=0.13.2
+  - pip
+  - pip:
+      - torcheval==0.0.7
+      - timm-3d==1.0.1

@@ -3,11 +3,30 @@
 This repository contains a series of Python scripts designed for processing, training, model conversion, and testing in the context of medical imaging analysis. Below is a comprehensive description of each script in the pipeline, explaining their specific purpose and the overall workflow.
 
 ## Table of Contents
-1. [1-DataPreparation.py](#1-data-preparation)
-2. [2a-Training.py](#2a-training)
-3. [2b-TrainingKFolds.py](#2b-training-k-folds)
-4. [3-ConvertModels.py](#3-convert-models)
-5. [4-InferenceTest.py](#4-inference-test)
+[Environment](#0-environment)
+[1-DataPreparation.py](#1-data-preparation)
+[2a-Training.py](#2a-training)
+[2b-TrainingKFolds.py](#2b-training-k-folds)
+[3-ConvertModels.py](#3-convert-models)
+[4-InferenceTest.py](#4-inference-test)
+
+## 0. Environment
+
+In order to use these script, you can create a tailored conda environment.
+
+First, clone the whole git repository and go to ModelTraining folder
+
+```
+git clone https://github.com/NeuroSainteAnne/FlairVisibilityVolume.git
+cd FlairVisibilityVolume/ModelTraining
+```
+
+You can now create and activate a conda environment (tested with conda 24.9.2)
+
+```
+conda env create -f environment.yml
+conda activate FVVenv
+```
 
 ## 1. Data Preparation
 
