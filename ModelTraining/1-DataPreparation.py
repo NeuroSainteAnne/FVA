@@ -2,7 +2,11 @@
 # J. Benzakoun 2024
 #
 # Usage:
-#   python 1-DataPreparation.py
+#   python 1-DataPreparation.py  [-k KFOLD] [-v VALID_PROP] 
+#
+# Arguments:
+#   -k, --kfolds           : Number of kfolds (default: 10)
+#   -v, --valid_proportion : Proportion of valid/train in each fold (default: 0.2)
 #
 # This script prepares data for deep learning training by processing MRI images,
 # creating memory-mapped files for efficient data handling, and generating metadata
@@ -30,13 +34,20 @@ import os
 import nibabel as nib
 from tqdm import tqdm
 import numpy as np
-from lib.tools import nib2rescaled
+from modules.tools import nib2rescaled
 from sklearn.model_selection import KFold, train_test_split
 import pandas as pd
+import argparse
+
+# Argument parser for running the script from the command line
+parser = argparse.ArgumentParser(description="DataPrepare",
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("-k", "--kfolds", help="Number of k-folds", default=10)
+parser.add_argument("-v", "--valid_proportion", help="proportion of valid/train in each fold", default=0.2)
+num_kfolds = int(vars(parser.parse_args())["kfolds"])
+valid_proportion = float(vars(parser.parse_args())["valid_proportion"])
 
 ### Default settings
-# Number of k-folds for cross-validation
-num_kfolds = 10
 # Proportion of data to be used for validation
 valid_proportion = 0.2
 

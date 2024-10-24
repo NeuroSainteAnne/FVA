@@ -30,11 +30,11 @@ import warnings
 import json
 import wandb
 
-from lib.generator import FVVDataset
-from lib.model import create_FVV_model
-from lib.figure import create_figure
-from lib.loops import validation_loop, training_loop, bn_loop
-from lib.classes import TrainingObject
+from modules.generator import FVVDataset
+from modules.model import create_FVV_model
+from modules.figure import create_figure
+from modules.loops import validation_loop, training_loop, bn_loop
+from modules.classes import TrainingObject
 
 ### Default settings for project name and model name
 defaultname = "FVV"

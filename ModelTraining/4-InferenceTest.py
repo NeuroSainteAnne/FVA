@@ -16,8 +16,8 @@ generate_heatmap = True
 # modules loading
 import os
 import glob
-from lib.tools import autorescale, getLargestCC, compute_color_nib
-from lib.generator import FVVDataset
+from modules.tools import autorescale, getLargestCC, compute_color_nib
+from modules.generator import FVVDataset
 from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 import re
