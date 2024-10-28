@@ -3,8 +3,9 @@ import pandas as pd
 import segmentation_models_pytorch as smp
 from torch.utils.data import DataLoader
 from torcheval.metrics import BinaryAccuracy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Tuple, List, Optional, Any, Dict
+import json
 
 # Definition of the TrainingObject class, which is used to encapsulate all training-related data and configurations
 @dataclass
@@ -17,6 +18,12 @@ class TrainingObject:
     cselector: int = field(init=False)
     # Tuple of integers indicating which data channels to use as output (e.g., stroke, flairviz)
     yselector: Tuple[int, ...]
+    # Index for the stroke outline in the input data
+    blob_index_ydat: int
+    # Index for the flairviz outline in the input data
+    viz_index_ydat: int
+    # Index for the mask outline in the output data
+    mask_index: int
     # Index for the stroke outline in the output data
     blob_index: int
     # Index for the flairviz outline in the output data
@@ -63,4 +70,59 @@ class TrainingObject:
         # Set the number of input channels to the length of xselector
         self.cselector = len(self.xselector)
         # Set the center z-slice index (i.e., the index where zselector is zero)
-        self.zcenter = np.where(np.array(self.zselector) == 0)[0][0]
+        self.zcenter = int(np.where(np.array(self.zselector) == 0)[0][0])
+
+    def to_dict(self):
+        # Convert the dataclass to a dictionary
+        data = asdict(self)
+        data["zcenter"] = int(data["zcenter"]) # compatibility for np.int64
+        
+        # Handle non-serializable fields
+        data['pat_ids'] = None
+        data['train_dataloader'] = None  # DataLoader cannot be serialized directly
+        data['valid_dataloader'] = None
+        data['bn_dataloader'] = None
+        data['simple_viz'] = None
+        data['simple_noviz'] = None
+        data['simple_mixviz'] = None
+        data['run'] = None
+        data['model'] = str(self.model) if self.model is not None else None
+        data['device'] = str(self.device) if self.device is not None else None
+        data['bce'] = str(self.bce) if self.bce is not None else None
+        data['bce_weighted'] = str(self.bce_weighted) if self.bce_weighted is not None else None
+        data['acc'] = str(self.acc) if self.acc is not None else None
+        data['optimizer'] = str(self.optimizer) if self.optimizer is not None else None
+        data['scheduler'] = str(self.scheduler) if self.scheduler is not None else None
+
+        return data
+        
+    @classmethod
+    def from_dict(cls, data: Dict):
+        # Note: Other fields like model, dataloaders, optimizer, etc. cannot be reconstructed from strings
+        # Here, they are set to None as a placeholder
+        del data['cselector'] 
+        del data['zcenter'] 
+        data['pat_ids'] = None
+        data['train_dataloader'] = None
+        data['valid_dataloader'] = None
+        data['bn_dataloader'] = None
+        data['simple_viz'] = None
+        data['simple_noviz'] = None
+        data['simple_mixviz'] = None
+        data['run'] = None
+        data['model'] = None
+        data['device'] = None
+        data['bce'] = None
+        data['bce_weighted'] = None
+        data['acc'] = None
+        data['optimizer'] = None
+        data['scheduler'] = None
+
+        return cls(**data)
+        
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str):
+        return cls.from_dict(json.loads(json_str))

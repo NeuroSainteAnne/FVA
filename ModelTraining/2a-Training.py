@@ -58,6 +58,7 @@ maskdat_disk = np.memmap(os.path.join("preprocessed_data","mask.memmap"),
                          dtype=np.uint8, mode="r", shape=(z_dim,1,256,256)) # brainmask
 metadat_disk = np.memmap(os.path.join("preprocessed_data","meta.memmap"), 
                          dtype=np.int32, mode="r", shape=(z_dim,5))
+meta_valid_index = 4
 pat_ids = pd.read_csv(os.path.join("preprocessed_data","subjects.csv"), index_col=0)
 
 def main_train_func(config, run):
@@ -85,7 +86,7 @@ def main_train_func(config, run):
         print("loaded in ram")
         print("RAM usage: ", psutil.virtual_memory()[3]/(1024*1000*1000))
         
-        train_filter = np.array(metadat[:,4] == 0)
+        train_filter = np.array(metadat[:,meta_valid_index] == 0)
         valid_filter = ~train_filter
     else:
         # If not preloading into RAM, use live memory-mapped data
@@ -93,8 +94,8 @@ def main_train_func(config, run):
         ydat = ydat_disk
         maskdat = maskdat_disk
         metadat = metadat_disk
-        train_filter = np.logical_and(filter_disk, metadat[:,4] == 0)
-        valid_filter = np.logical_and(filter_disk, metadat[:,4] == 1)
+        train_filter = np.logical_and(filter_disk, metadat[:,meta_valid_index] == 0)
+        valid_filter = np.logical_and(filter_disk, metadat[:,meta_valid_index] == 1)
 
     
     # Initialize the TrainingObject with configuration and data selectors
@@ -103,15 +104,27 @@ def main_train_func(config, run):
         run = run,
         xselector = tuple([0,1]), # dimensions for input data (b1000, b0)
         yselector = tuple([0,1]), # dimensions for output data (stroke, flairviz)
-        blob_index = 0, # index for stroke outline in ydat
-        viz_index = 1, # index for flairviz index in ydat
+        blob_index_ydat = 0, # index for stroke outline in ydat
+        viz_index_ydat = 1, # index for flairviz index in ydat
+        mask_index = 0, # index for mask outline in model output
+        blob_index = 1, # index for stroke outline in model output
+        viz_index = 2, # index for flairviz index in model output
         # selector for z-slices
         zselector = list(range(-int((config["input_2.5_zslices"]-1)/2), +int((config["input_2.5_zslices"]-1)/2)+1)),
         epoch = config["start_epoch"],
         pat_ids=pat_ids
     )
     print("Selectors", status.xselector, status.cselector, status.yselector, status.zselector, status.zcenter)
+    
+    if config["save_model"] and run is not None:
+        os.makedirs("saved_models", exist_ok=True)
+        with open(os.path.join("saved_models",run.name+".config.json"), "w") as f:
+            f.write(status.to_json())
 
+    #### Model Creation and device assignment
+    status.model, status.device = create_FVV_model(status)
+    print("Model loaded")
+    
     ##### DEFINE DATALOADERS
     # Create datasets and data loaders for training and validation
     whole_dataset_augm = FVVDataset(xdat,maskdat,metadat,ydat,status=status)
@@ -134,10 +147,10 @@ def main_train_func(config, run):
     n = 0
     for ipat in range(len(validpat)):
         slices = metadat[:,0]==validpat[ipat]
-        maxblob = np.argmax(np.sum(ydat[slices,1], axis=(1,2)))
-        if np.sum(ydat[slices][maxblob,1]) == 0: ## avoid subjects with no stroke
+        maxblob = np.argmax(np.sum(ydat[slices,status.blob_index_ydat], axis=(1,2)))
+        if np.sum(ydat[slices][maxblob,status.blob_index_ydat]) == 0: ## avoid subjects with no stroke
             continue
-        ratioviz = np.sum(ydat[slices][maxblob,status.viz_index])/np.sum(ydat[slices][maxblob,status.blob_index])
+        ratioviz = np.sum(ydat[slices][maxblob,status.viz_index_ydat])/np.sum(ydat[slices][maxblob,status.blob_index_ydat])
         if ratioviz > 0.95 and len(simple_index_viz) < 8:
             simple_index_viz.append(np.arange(metadat.shape[0])[slices][maxblob])
         elif ratioviz < 0.05 and len(simple_index_noviz) < 8:
@@ -154,10 +167,6 @@ def main_train_func(config, run):
     simple_mixviz_dataset = Subset(whole_dataset, simple_index_mixviz)
     status.simple_mixviz = DataLoader(simple_mixviz_dataset, batch_size=8) # create your dataloader
     print("Figures subjects loaded", len(simple_index_viz), len(simple_index_noviz), len(simple_index_mixviz))
-
-    #### Model Creation and device assignment
-    status.model, status.device = create_FVV_model(status)
-    print("Model loaded")
 
     # Loss functions
     status.bce = smp.losses.SoftBCEWithLogitsLoss(smooth_factor=config["label_smoothing"],
@@ -210,7 +219,7 @@ def main_train_func(config, run):
     for epoch in range(status.epoch,config["max_num_epochs"]+1):  # loop over the dataset multiple times    
         status.epoch = epoch
         ### VALIDATION LOOP
-        if epoch % config["validation_each_epoch"] == 0:
+        if epoch % config["validation_each_epoch"] == 0 and epoch > 0:
             bn_loop(status) # data normalization before validation to reset BN layers
             this_loss, this_dice, this_kappa, this_auc = validation_loop(status)
             # Save the model if it is an improvement
@@ -219,7 +228,9 @@ def main_train_func(config, run):
                 if this_loss < best_validation_loss or this_dice > best_global_dice or \
                     this_kappa > best_kappa or this_auc > best_auc:
                     if run is not None:
-                        torch.save(status.model, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
+                        if status.config["multigpu"]: state_dict = status.model.module.state_dict()
+                        else: state_dict = status.model.state_dict()
+                        torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
                 best_validation_loss = min(best_validation_loss,this_loss)
                 best_global_dice = max(best_global_dice,this_dice)
                 best_kappa = max(this_kappa,best_kappa)
@@ -229,14 +240,18 @@ def main_train_func(config, run):
         if epoch == config["max_num_epochs"]:
             if run is not None: wandb.finish()
             if config["save_model"]:
-                torch.save(status.model, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
+                if status.config["multigpu"]: state_dict = status.model.module.state_dict()
+                else: state_dict = status.model.state_dict()
+                torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
             break
             
         ### TRAINING STEP
         training_loop(status)
 
     # Save final model
-    torch.save(status.model, os.path.join("saved_models",run.name+"-epoch"+str(status.epoch)+".pth"))
+    if status.config["multigpu"]: state_dict = status.model.module.state_dict()
+    else: state_dict = status.model.state_dict()
+    torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
     if run is not None: wandb.finish()
 
 if __name__ == "__main__":    
@@ -246,7 +261,10 @@ if __name__ == "__main__":
     parser.add_argument("-k", "--kfold", help="fold", default=0.0)
     parser.add_argument("-n", "--name", help="name", default=defaultname)
     parser.add_argument("-d", "--debug", help="debug", default=None)
+    parser.add_argument("-p", "--preload_model", help="Preload Model", default=None)
     parser.add_argument("-ram", "--preload_RAM", help="preload_RAM", default=None)
+    parser.add_argument("-e", "--num_epochs", help="Max number of epochs", default=75)
+    parser.add_argument("-lr", "--learning_rate", help="Initial learning rate", default=0.001)
     parser.add_argument("-w", "--wandb_project", help="wandb project name", default=default_wandb_project)
     args = parser.parse_args()
     
@@ -254,7 +272,7 @@ if __name__ == "__main__":
     config = {
         "train_batch_size": 16,
         "test_batch_size": 128,
-        "max_num_epochs": 75,
+        "max_num_epochs": int(vars(args)["num_epochs"]), 
         "slices_per_epoch": 128*128,
         "label_smoothing": 0.01,
         "lambda_mask": 1,
@@ -262,7 +280,7 @@ if __name__ == "__main__":
         "lambda_viz": 100,
         "lambda_noviz": 0,
         "weight_viz": 0,
-        "learning_rate": 0.001,
+        "learning_rate": float(vars(args)["learning_rate"]), 
         "lr_scheduler":True,
         "lr_scheduler_mode":"plateau",
         "lr_scheduler_factor":0.1,
@@ -282,7 +300,7 @@ if __name__ == "__main__":
         "aug_z":True,
         "input_2.5D": "smp3d",
         "input_2.5_zslices": 7,
-        "preload_model": None, 
+        "preload_model": vars(args)["preload_model"], 
         "model_name": "DeepLabV3+",
         "encoder_name": "efficientnet-b0",
         "encoder_weights": "imagenet",
@@ -300,9 +318,5 @@ if __name__ == "__main__":
         main_train_func(config, None)
     else:
         run = wandb.init(project=config["wandb_project"], config=config, name=vars(args)["name"]+"-k"+str(int(config["kfold"])))
-        if config["save_model"]:
-            os.makedirs("saved_models", exist_ok=True)
-            with open(os.path.join("saved_models",run.name+".config.json"), "w") as f:
-                json.dump(config, f)
         main_train_func(config, run)
         wandb.finish()

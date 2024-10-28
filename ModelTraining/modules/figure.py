@@ -37,14 +37,14 @@ def create_figure(fig_dataset, status):
         for i in range(simple_size):
             # Extract true image, predicted mask, and ground truth mask
             true_diff = x[i, 0].cpu().numpy().T[::-1]  # Transpose and flip for visualization
-            pred_mask = torch.sigmoid(simple_outputs[i, 0]).cpu().numpy().T[::-1]  # Apply sigmoid activation
+            pred_mask = torch.sigmoid(simple_outputs[i, status.mask_index]).cpu().numpy().T[::-1]  # Apply sigmoid activation
             true_mask = simple_data[1][i, 0].numpy().T[::-1]
             
             # Extract coarse stroke and flairviz predictions and ground truth
-            pred_coarse = torch.sigmoid(simple_outputs[i, status.blob_index + 1]).cpu().numpy().T[::-1] * (pred_mask > 0.5)
-            true_coarse = simple_data[3][i, status.blob_index].numpy().T[::-1]
-            pred_viz = torch.sigmoid(simple_outputs[i, status.viz_index + 1]).cpu().numpy().T[::-1] * (pred_coarse > 0.5)
-            true_viz = simple_data[3][i, status.viz_index].numpy().T[::-1]
+            pred_coarse = torch.sigmoid(simple_outputs[i, status.blob_index]).cpu().numpy().T[::-1] * (pred_mask > 0.5)
+            true_coarse = simple_data[3][i, status.blob_index_ydat].numpy().T[::-1]
+            pred_viz = torch.sigmoid(simple_outputs[i, status.viz_index]).cpu().numpy().T[::-1] * (pred_coarse > 0.5)
+            true_viz = simple_data[3][i, status.viz_index_ydat].numpy().T[::-1]
             
             # Create composite images for visualization
             true_composite = true_mask + (true_coarse * true_mask) + (true_viz * true_coarse * true_mask)

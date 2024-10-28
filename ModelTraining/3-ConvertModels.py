@@ -21,6 +21,8 @@ import numpy as np
 import re
 import sys
 sys.path.insert(0,os.path.join(os.getcwd(),"../dependencies/smp3d"))
+from modules.classes import TrainingObject
+from modules.model import create_FVV_model
 
 # Function to extract the epoch number from the model filename for sorting purposes
 def natural_keys(text):
@@ -56,16 +58,27 @@ os.makedirs("saved_models_ONNX", exist_ok=True)
 
 # Loop through each selected model and convert it to ONNX format
 for i, m in enumerate(list_models):
+    previous_status_path = m.split("-epoch")[0]+".config.json"
+    if os.path.exists(previous_status_path):
+        with open(previous_status_path, "r") as pv: 
+            previous_status = TrainingObject.from_json(pv.read())
+    else:
+        print("Did not find config file")
+        continue
+
     # Load the PyTorch model
-    model = torch.load(m, weights_only=False).module
+    previous_status.config["preload_model"] = m
+    previous_status.config["multigpu"] = False
+    model, device = create_FVV_model(previous_status, device="cpu")
+        
     model.eval()   # Set the model to evaluation mode
     
     # Create a dummy input tensor with the expected dimensions
-    torch_input = torch.randn(1, 2, 7, 256, 256, requires_grad=True)
+    torch_input = torch.randn(1, 2, 7, 256, 256, requires_grad=True).cpu()
     
     # Export the model to ONNX format
     torch.onnx.export(model,         # model being run 
-             torch_input.cuda(),       # model input (or a tuple for multiple inputs) 
+             torch_input,       # model input (or a tuple for multiple inputs) 
              os.path.join("saved_models_ONNX","model"+str(i+1)+".onnx"),       # where to save the model  
              export_params=True,  # store the trained parameter weights inside the model file 
              do_constant_folding=True,  # whether to execute constant folding for optimization 

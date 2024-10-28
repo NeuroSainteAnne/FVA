@@ -1,12 +1,23 @@
 import torch
 import segmentation_models_pytorch_3d as smp3d
 import segmentation_models_pytorch as smp
+from modules.classes import TrainingObject
+import os
 
-def create_FVV_model(status):
+def create_FVV_model(status, device=None):
     ### MODEL LOADING
     if status.config["preload_model"] is not None:
-        model = torch.load(status.config["preload_model"])
-    elif status.config["input_2.5D"] == "smp3d":
+        previous_status_path = status.config["preload_model"].split("-epoch")[0]+".config.json"
+        if os.path.exists(previous_status_path): # check compatibility mode
+            with open(previous_status_path, "r") as pv: 
+                previous_status = TrainingObject.from_json(pv.read())
+        else: # compatibility mode for older model without config
+            model = torch.load(status.config["preload_model"], weights_only=False)
+            if device is None:
+                device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            return model, device
+            
+    if status.config["input_2.5D"] == "smp3d":
         ### 3D model
         if status.config["model_name"] == "Unet": smpmod = smp3d.Unet
         elif status.config["model_name"] == "Unet++": smpmod = smp3d.UnetPlusPlus
@@ -43,9 +54,15 @@ def create_FVV_model(status):
         model.decoder = model2D.decoder
         model.segmentation_head = model2D.segmentation_head
 
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    
+    if status.config["preload_model"]:
+        model.load_state_dict(torch.load(status.config["preload_model"], weights_only=True))
+            
     ## load model on GPU
-    if status.config["multigpu"]: model = torch.nn.DataParallel(model)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if status.config["multigpu"]:
+        model = torch.nn.DataParallel(model)
     model.to(device)
     return model, device
     

@@ -20,7 +20,7 @@ def training_loop(status):
     # Iterate over the training dataset
     for i, data in enumerate(status.train_dataloader, 0):
         # Initialize metrics and reset parameter gradients
-        train_metrics = {"loss": None, "loss_mask": None, "loss_coarse": None, "loss_viz": None, "loss_noviz": None}
+        train_metrics = {"loss": None, "loss_mask": None, "loss_coarse": None, "loss_viz": None}
         status.optimizer.zero_grad()
         
         # Load input data and labels to the device
@@ -33,7 +33,7 @@ def training_loop(status):
         outputs = status.model(x)
         
         # Calculate mask loss
-        loss_mask = torch.mean(status.bce(outputs[:, 0], mask[:, 0].float()))
+        loss_mask = torch.mean(status.bce(outputs[:, status.mask_index], mask[:, 0].float()))
         loss = status.config["lambda_mask"] * loss_mask
         train_metrics["loss_mask"] = loss_mask.item()
         
@@ -41,8 +41,8 @@ def training_loop(status):
         skullmask = mask[:, 0] > 0.5
         if torch.sum(skullmask) > 0:
             loss_coarse = torch.mean(status.bce(
-                torch.masked_select(outputs[:, status.blob_index + 1], skullmask),
-                torch.masked_select(y[:, status.blob_index].float(), skullmask)
+                torch.masked_select(outputs[:, status.blob_index], skullmask),
+                torch.masked_select(y[:, status.blob_index_ydat].float(), skullmask)
             ))
             
             if status.config["lambda_coarse_segm"] > 0:
@@ -54,8 +54,8 @@ def training_loop(status):
                 if status.config["lambda_viz"] > 0:
                     loss_viz = torch.mean(
                         status.bce_weighted(
-                            torch.masked_select(outputs[:, status.viz_index + 1], skullmask),
-                            torch.masked_select(y[:, status.viz_index].float(), skullmask)
+                            torch.masked_select(outputs[:, status.viz_index], skullmask),
+                            torch.masked_select(y[:, status.viz_index_ydat].float(), skullmask)
                         )
                     )
                     loss += status.config["lambda_viz"] * loss_viz
@@ -106,7 +106,7 @@ def validation_loop(status):
                     "all_viz":[]}
     val_metrics = {"mask_dice":[],"coarse_dice":[],"viz_dice":[],"noviz_dice":[], "percent_correct":[],
                    "coarse_accuracy":[],"viz_accuracy":[],"noviz_accuracy":[], "loss":[],
-                  "loss_mask":[],"loss_coarse":[],"loss_viz":[],"loss_noviz":[]}
+                  "loss_mask":[],"loss_coarse":[],"loss_viz":[]}
     pred_classif = []
     true_classif = []
     pat_index = []
@@ -147,29 +147,29 @@ def validation_loop(status):
             val_measures["skull_FN"] += list((skull_GT*~skull_Pred).view(n,-1).sum(1).cpu().numpy())
             
             # Additional metrics for blob and visualization predictions
-            blob_GT = skull_GT*(y[:,status.blob_index]>0.5)
-            blob_Pred = skull_Pred*(outputs[:,status.blob_index+1]>0)
+            blob_GT = skull_GT*(y[:,status.blob_index_ydat]>0.5)
+            blob_Pred = skull_Pred*(outputs[:,status.blob_index]>0)
             val_measures["blob_VP"] += list((blob_GT*blob_Pred).view(n,-1).sum(1).cpu().numpy())
             val_measures["blob_VN"] += list((~blob_GT*~blob_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["blob_FP"] += list((~blob_GT*blob_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["blob_FN"] += list((blob_GT*~blob_Pred).view(n,-1).sum(1).cpu().numpy())
             
             # Calculate metrics for flairviz
-            viz_GT = blob_GT*(y[:,status.viz_index]>0.5)
-            viz_Pred = blob_Pred*(outputs[:,status.viz_index+1]>0)
+            viz_GT = blob_GT*(y[:,status.viz_index_ydat]>0.5)
+            viz_Pred = blob_Pred*(outputs[:,status.viz_index]>0)
             val_measures["viz_VP"] += list((viz_GT*viz_Pred).view(n,-1).sum(1).cpu().numpy())
             val_measures["viz_VN"] += list((~viz_GT*~viz_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["viz_FP"] += list((~viz_GT*viz_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["viz_FN"] += list((viz_GT*~viz_Pred).view(n,-1).sum(1).cpu().numpy())
-            noviz_GT = blob_GT*(y[:,status.viz_index]<0.5)
-            noviz_Pred = blob_Pred*(outputs[:,status.viz_index+1]<0)
+            noviz_GT = blob_GT*(y[:,status.viz_index_ydat]<0.5)
+            noviz_Pred = blob_Pred*(outputs[:,status.viz_index]<0)
             val_measures["noviz_VP"] += list((noviz_GT*noviz_Pred).view(n,-1).sum(1).cpu().numpy())
             val_measures["noviz_VN"] += list((~noviz_GT*~noviz_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["noviz_FP"] += list((~noviz_GT*noviz_Pred*skull_GT).view(n,-1).sum(1).cpu().numpy())
             val_measures["noviz_FN"] += list((noviz_GT*~noviz_Pred).view(n,-1).sum(1).cpu().numpy())
-            composite_l = torch.sigmoid(outputs[:,0]) + \
-                           (torch.sigmoid(outputs[:,status.blob_index+1])*torch.sigmoid(outputs[:,0])) + \
-                           (torch.sigmoid(outputs[:,status.viz_index+1])*torch.sigmoid(outputs[:,status.blob_index+1])*torch.sigmoid(outputs[:,0]))
+            composite_l = torch.sigmoid(outputs[:,status.mask_index]) + \
+                           (torch.sigmoid(outputs[:,status.blob_index])*torch.sigmoid(outputs[:,0])) + \
+                           (torch.sigmoid(outputs[:,status.viz_index])*torch.sigmoid(outputs[:,status.blob_index+1])*torch.sigmoid(outputs[:,0]))
             viz_Pred_compo = composite_l > 2.5
             val_measures["all_viz"] += list(viz_Pred_compo.view(n,-1).sum(1).cpu().numpy())
         
@@ -177,24 +177,24 @@ def validation_loop(status):
             loss_mask = status.bce(outputs[:,0],mask[:,0].float()).mean()*n/status.config["test_batch_size"]
             loss = status.config["lambda_mask"]*loss_mask
             val_metrics["loss_mask"] += [loss_mask.item()]
-            loss_coarse = status.bce(outputs[:,status.blob_index+1],blob_GT.float()).masked_select(skull_GT).mean()*n/status.config["test_batch_size"]
+            loss_coarse = status.bce(outputs[:,status.blob_index],blob_GT.float()).masked_select(skull_GT).mean()*n/status.config["test_batch_size"]
             val_metrics["loss_coarse"] += [loss_coarse.item()]
             if status.config["lambda_coarse_segm"] > 0:
                 loss += status.config["lambda_coarse_segm"]*loss_coarse
-            loss_viz = status.bce_weighted(outputs[:,status.viz_index+1],viz_GT.float()).masked_select(skull_GT).mean()*n/status.config["test_batch_size"]
+            loss_viz = status.bce_weighted(outputs[:,status.viz_index],viz_GT.float()).masked_select(skull_GT).mean()*n/status.config["test_batch_size"]
             val_metrics["loss_viz"] += [loss_viz.item()]
             if status.config["lambda_viz"] > 0:
                 loss += status.config["lambda_viz"]*loss_viz
             val_metrics["loss"] += [loss.item()]
             
             # Compute accuracy for different classes 
-            status.acc.update(torch.masked_select(outputs[:,status.blob_index+1],skull_GT),
+            status.acc.update(torch.masked_select(outputs[:,status.blob_index],skull_GT),
                         torch.masked_select(blob_GT.float(),skull_GT))
             val_metrics["coarse_accuracy"] += [status.acc.compute().item()*n/status.config["test_batch_size"]]
-            status.acc.update(torch.masked_select(outputs[:,status.viz_index+1]*blob_Pred,skull_GT),
+            status.acc.update(torch.masked_select(outputs[:,status.viz_index]*blob_Pred,skull_GT),
                         torch.masked_select(viz_GT.float(),skull_GT))
             val_metrics["viz_accuracy"] += [status.acc.compute().item()*n/status.config["test_batch_size"]]
-            status.acc.update(torch.masked_select((-1.0*outputs[:,status.viz_index+1])*blob_Pred,skull_GT),
+            status.acc.update(torch.masked_select((-1.0*outputs[:,status.viz_index])*blob_Pred,skull_GT),
                         torch.masked_select(noviz_GT.float(),skull_GT))
             val_metrics["noviz_accuracy"] += [status.acc.compute().item()*n/status.config["test_batch_size"]]
             sum_blob_GT = blob_GT.sum().item()
