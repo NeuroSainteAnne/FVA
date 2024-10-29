@@ -23,6 +23,10 @@ The [Model Training](ModelTraining) folder includes Python scripts for training 
 
 The [Docker Container](DockerContainer) folder provides a Docker setup for fast inference using pre-trained models. The Docker container allows users to efficiently run the model inference process without needing to install complex dependencies manually. It is ideal for deployment in production environments or for sharing the inference capabilities with collaborators.
 
+#### Example of synthesis map created with FVV Docker Container
+<img src="images/synthesis.png?raw=true" width="500" alt="Example of synthesis map">
+The DWI lesion was also visible on FLAIR sequence (no DWI-FLAIR mismatch)
+
 ### 3. Model weights
 
 The complete code with model weights, whose training is described in the original paper, can be downloaded in the Releases section.
@@ -30,10 +34,6 @@ The complete code with model weights, whose training is described in the origina
 ## Getting Started
 
 To get started with this repository, clone the repository and follow the setup instructions provided in the README files of the respective folders (`ModelTraining` and `DockerContainer`). Detailed setup instructions for creating the appropriate environment are provided.
-
-## Prerequisites
-- Python 3.8+
-- Recommended: GPU for model training and inference
 
 ## License
 This repository is licensed under the ??? License. Please see the `LICENSE` file for more details.
