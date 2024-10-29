@@ -220,7 +220,7 @@ def main_train_func(config, run):
     for epoch in range(status.epoch,config["max_num_epochs"]+1):  # loop over the dataset multiple times    
         status.epoch = epoch
         ### VALIDATION LOOP
-        if epoch % config["validation_each_epoch"] == 0 and epoch > 0:
+        if epoch % config["validation_each_epoch"] == 0:
             bn_loop(status) # data normalization before validation to reset BN layers
             this_loss, this_dice, this_kappa, this_auc = validation_loop(status)
             # Save the model if it is an improvement
@@ -268,6 +268,7 @@ if __name__ == "__main__":
     parser.add_argument("-lr", "--learning_rate", help="Initial learning rate", default=0.001)
     parser.add_argument("-c", "--compatibility_mode", help="Compatibility mode for older models", default=None)
     parser.add_argument("-w", "--wandb_project", help="wandb project name", default=default_wandb_project)
+    parser.add_argument("-q", "--qat_finetune", help="Quantization at training finetuning", default=None)
     args = parser.parse_args()
     
     # Configuration settings for the training process
@@ -313,7 +314,8 @@ if __name__ == "__main__":
         "kfold": vars(args)["kfold"],
         "preload_RAM": True if vars(args)["preload_RAM"] else False,
         "wandb_project": vars(args)["wandb_project"],
-        "compatibility_mode": True if vars(args)["compatibility_mode"] else False
+        "compatibility_mode": True if vars(args)["compatibility_mode"] else False,
+        "qat_finetune": True if vars(args)["qat_finetune"] else False
     }
 
     # Run the training function in debug mode or normal mode
