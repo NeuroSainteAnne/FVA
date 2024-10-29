@@ -36,7 +36,7 @@ import pandas as pd
 parser = argparse.ArgumentParser(description="DataPrepare",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-d", "--inference_dir", help="Inference directory", default="input_data/")
-parser.add_argument("-f", "--favorite", help="favorite inference device", default="input_data/")
+parser.add_argument("-f", "--favorite", help="favorite inference device", default="GPU")
 inference_dir = str(vars(parser.parse_args())["inference_dir"])
 favorite_device = str(vars(parser.parse_args())["favorite"])
 if not os.path.exists(inference_dir):
