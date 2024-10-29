@@ -45,24 +45,25 @@ warnings.filterwarnings("ignore", ".*Mean of empty slice.*")
 warnings.filterwarnings("ignore", ".*invalid value encountered in scalar divide.*")
 warnings.filterwarnings("ignore", ".*The given NumPy array is not writable.*")
 
-### Data load
-# Load dimensions of dataset from a saved file
-with open(os.path.join("preprocessed_data","dimensions.txt"), "r") as file:
-    z_dim = int(file.read())
-# Load preprocessed data from memory-mapped files
-xdat_disk = np.memmap(os.path.join("preprocessed_data","xdat.memmap"), 
-                      dtype=np.float16, mode="r", shape=(z_dim,2,256,256)) # b1000 b0 ADC FLAIR
-ydat_disk = np.memmap(os.path.join("preprocessed_data","ydat.memmap"), 
-                      dtype=np.uint8, mode="r", shape=(z_dim,2,256,256)) # blob blob_viz
-maskdat_disk = np.memmap(os.path.join("preprocessed_data","mask.memmap"), 
-                         dtype=np.uint8, mode="r", shape=(z_dim,1,256,256)) # brainmask
-metadat_disk = np.memmap(os.path.join("preprocessed_data","meta.memmap"), 
-                         dtype=np.int32, mode="r", shape=(z_dim,5))
-meta_valid_index = 4
-pat_ids = pd.read_csv(os.path.join("preprocessed_data","subjects.csv"), index_col=0)
 
 def main_train_func(config, run):
-    global xdat_disk, ydat_disk, maskdat_disk, metadat_disk, pat_ids  
+    ### Data load
+    # Load dimensions of dataset from a saved file
+    with open(os.path.join("preprocessed_data","dimensions.txt"), "r") as file:
+        z_dim = int(file.read())
+        
+    # Load preprocessed data from memory-mapped files
+    xdat_disk = np.memmap(os.path.join("preprocessed_data","xdat.memmap"), 
+                          dtype=np.float16, mode="r", shape=(z_dim,2,256,256)) # b1000 b0 ADC FLAIR
+    ydat_disk = np.memmap(os.path.join("preprocessed_data","ydat.memmap"), 
+                          dtype=np.uint8, mode="r", shape=(z_dim,3 if config["compatibility_mode"] else 2,256,256)) # blob blob_viz
+    maskdat_disk = np.memmap(os.path.join("preprocessed_data","mask.memmap"), 
+                             dtype=np.uint8, mode="r", shape=(z_dim,1,256,256)) # brainmask
+    metadat_disk = np.memmap(os.path.join("preprocessed_data","meta.memmap"), 
+                             dtype=np.int32, mode="r", shape=(z_dim,8 if config["compatibility_mode"] else 5))
+    meta_valid_index = 7 if config["compatibility_mode"] else 4
+    pat_ids = pd.read_csv(os.path.join("preprocessed_data","subjects.csv"), index_col=0)
+
     if run is not None: plt.switch_backend("agg")
     print("KFOLD", config["kfold"])
     # Create a filter to exclude test data belonging to the current k-fold
@@ -103,12 +104,12 @@ def main_train_func(config, run):
         config = config,
         run = run,
         xselector = tuple([0,1]), # dimensions for input data (b1000, b0)
-        yselector = tuple([0,1]), # dimensions for output data (stroke, flairviz)
-        blob_index_ydat = 0, # index for stroke outline in ydat
-        viz_index_ydat = 1, # index for flairviz index in ydat
+        yselector = tuple([0,1,2]) if config["compatibility_mode"] else tuple([0,1]), # dimensions for output data (stroke, flairviz)
+        blob_index_ydat = 1 if config["compatibility_mode"] else 0, # index for stroke outline in ydat
+        viz_index_ydat = 2 if config["compatibility_mode"] else 1, # index for flairviz index in ydat
         mask_index = 0, # index for mask outline in model output
-        blob_index = 1, # index for stroke outline in model output
-        viz_index = 2, # index for flairviz index in model output
+        blob_index = 2 if config["compatibility_mode"] else 1, # index for stroke outline in model output
+        viz_index = 3 if config["compatibility_mode"] else 2, # index for flairviz index in model output
         # selector for z-slices
         zselector = list(range(-int((config["input_2.5_zslices"]-1)/2), +int((config["input_2.5_zslices"]-1)/2)+1)),
         epoch = config["start_epoch"],
@@ -265,6 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("-ram", "--preload_RAM", help="preload_RAM", default=None)
     parser.add_argument("-e", "--num_epochs", help="Max number of epochs", default=75)
     parser.add_argument("-lr", "--learning_rate", help="Initial learning rate", default=0.001)
+    parser.add_argument("-c", "--compatibility_mode", help="Compatibility mode for older models", default=None)
     parser.add_argument("-w", "--wandb_project", help="wandb project name", default=default_wandb_project)
     args = parser.parse_args()
     
@@ -310,7 +312,8 @@ if __name__ == "__main__":
         "debug": True if vars(args)["debug"] else False,
         "kfold": vars(args)["kfold"],
         "preload_RAM": True if vars(args)["preload_RAM"] else False,
-        "wandb_project": vars(args)["wandb_project"]
+        "wandb_project": vars(args)["wandb_project"],
+        "compatibility_mode": True if vars(args)["compatibility_mode"] else False
     }
 
     # Run the training function in debug mode or normal mode
