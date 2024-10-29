@@ -12,9 +12,13 @@ def create_FVV_model(status, device=None):
             with open(previous_status_path, "r") as pv: 
                 previous_status = TrainingObject.from_json(pv.read())
         else: # compatibility mode for older model without config
-            model = torch.load(status.config["preload_model"], weights_only=False)
+            model = torch.load(status.config["preload_model"], weights_only=False).module
             if device is None:
                 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            model.to(device)
+            model.decoder.to(device)
+            model.encoder.to(device)
+            model.segmentation_head.to(device)
             return model, device
             
     if status.config["input_2.5D"] == "smp3d":
