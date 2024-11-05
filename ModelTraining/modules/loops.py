@@ -6,6 +6,7 @@ from sklearn.metrics import cohen_kappa_score, roc_auc_score
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm
 
 eps = 10e-5
         
@@ -18,7 +19,7 @@ def training_loop(status):
     print("Training epoch", status.epoch)
     
     # Iterate over the training dataset
-    for i, data in enumerate(status.train_dataloader, 0):
+    for i, data in tqdm(enumerate(status.train_dataloader), total=int(status.config["slices_per_epoch"]/status.config["train_batch_size"])):
         # Initialize metrics and reset parameter gradients
         train_metrics = {"loss": None, "loss_mask": None, "loss_coarse": None, "loss_viz": None}
         status.optimizer.zero_grad()
@@ -127,7 +128,7 @@ def validation_loop(status):
                 plt.close()
             
         # Iterate over the validation dataset
-        for i, data in enumerate(status.valid_dataloader, 0):
+        for i, data in tqdm(enumerate(status.valid_dataloader), total=len(status.valid_dataloader)):
             # Load input data, labels, and mask to the device
             x = data[0].to(status.device)
             y = data[3].to(status.device)

@@ -35,23 +35,8 @@ def qat_integrate(model, device):
     
 def create_FVV_model(status, device=None):
     ### MODEL LOADING
-    preloaded_model = False
-    if status.config["preload_model"] is not None:
-        previous_status_path = status.config["preload_model"].split("-epoch")[0]+".config.json"
-        if os.path.exists(previous_status_path): # check compatibility mode
-            with open(previous_status_path, "r") as pv: 
-                previous_status = TrainingObject.from_json(pv.read())
-        else: # compatibility mode for older model without config
-            model = torch.load(status.config["preload_model"], weights_only=False).module
-            if device is None:
-                device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-            model.to(device)
-            model.decoder.to(device)
-            model.encoder.to(device)
-            model.segmentation_head.to(device)
-        preloaded_model = True
             
-    if status.config["input_2.5D"] == "smp3d" and not preloaded_model:
+    if status.config["input_2.5D"] == "smp3d":
         ### 3D model
         if status.config["model_name"] == "Unet": smpmod = smp3d.Unet
         elif status.config["model_name"] == "Unet++": smpmod = smp3d.UnetPlusPlus
@@ -91,13 +76,25 @@ def create_FVV_model(status, device=None):
     if device is None:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     
-    if status.config["preload_model"] and not preloaded_model:
-        model.load_state_dict(torch.load(status.config["preload_model"], weights_only=True))
-
-            
+    if status.config["preload_model"]:
+        state_dict = torch.load(status.config["preload_model"], weights_only=True)
+        if 'encoder._conv_stem.weight' in state_dict.keys():
+            state_dict['encoder._conv_stem.conv3D.weight'] = state_dict.pop('encoder._conv_stem.weight')
+        for i in range(16):
+            for n in ["_depthwise_conv","_se_reduce","_se_expand","_expand_conv","_project_conv"]:
+                for wb in ["weight","bias"]:
+                    if 'encoder._blocks.'+str(i)+'.'+n+'.'+wb in state_dict.keys():
+                        state_dict['encoder._blocks.'+str(i)+'.'+n+'.conv3D.'+wb] = state_dict.pop('encoder._blocks.'+str(i)+'.'+n+'.'+wb)
+        if 'encoder._conv_head.weight' in state_dict.keys():
+            state_dict['encoder._conv_head.conv3D.weight'] = state_dict.pop('encoder._conv_head.weight')
+        model.load_state_dict(state_dict)
+    
     if "qat_finetune" in status.config and status.config["qat_finetune"]:
         model = qat_integrate(model, device)
-            
+        
+    if "qat_preload_model" in status.config and status.config["qat_preload_model"]:
+        model.load_state_dict(torch.load(status.config["qat_preload_model"], weights_only=True))
+        
     ## load model on GPU
     if status.config["multigpu"]:
         model = torch.nn.DataParallel(model)

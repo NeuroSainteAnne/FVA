@@ -13,6 +13,7 @@
 # List of models to be converted. If empty, the script will automatically select the latest model for each fold
 list_models = [] # We strongly advise you to manually select your models! If you do not select them, the latest model will be selected for each fold
 
+
 # module importation
 import torch
 import os
@@ -62,16 +63,23 @@ for i, m in enumerate(list_models):
     if os.path.exists(previous_status_path):
         with open(previous_status_path, "r") as pv: 
             previous_status = TrainingObject.from_json(pv.read())
+        # Load the PyTorch model
+        qat_trained = False
+        if "qat_finetune" in previous_status.config.keys() and previous_status.config["qat_finetune"]:
+            previous_status.config["preload_model"] = None
+            previous_status.config["qat_preload_model"] = m
+            qat_trained = True
+        else:
+            previous_status.config["preload_model"] = m
+        previous_status.config["multigpu"] = False
+        model, device = create_FVV_model(previous_status, device="cpu")
+        model.eval()   # Set the model to evaluation mode
+        if qat_trained:
+            model = torch.ao.quantization.convert(model.cpu())
     else:
         print("Did not find config file")
         continue
-
-    # Load the PyTorch model
-    previous_status.config["preload_model"] = m
-    previous_status.config["multigpu"] = False
-    model, device = create_FVV_model(previous_status, device="cpu")
         
-    model.eval()   # Set the model to evaluation mode
     
     # Create a dummy input tensor with the expected dimensions
     torch_input = torch.randn(1, 2, 7, 256, 256, requires_grad=True).cpu()
@@ -81,8 +89,9 @@ for i, m in enumerate(list_models):
              torch_input,       # model input (or a tuple for multiple inputs) 
              os.path.join("saved_models_ONNX","model"+str(i+1)+".onnx"),       # where to save the model  
              export_params=True,  # store the trained parameter weights inside the model file 
-             do_constant_folding=True,  # whether to execute constant folding for optimization 
+             do_constant_folding=False,  # whether to execute constant folding for optimization 
              input_names = ['modelInput'],   # the model's input names 
              output_names = ['modelOutput'], # the model's output names 
              dynamic_axes={'modelInput' : {0 : 'batch_size'},    # variable length axes 
-                           'modelOutput' : {0 : 'batch_size'}}) 
+                           'modelOutput' : {0 : 'batch_size'}},
+                     opset_version=20) 

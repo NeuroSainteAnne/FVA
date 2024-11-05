@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import warnings
 import json
 import wandb
+import copy
 
 from modules.generator import FVVDataset
 from modules.model import create_FVV_model
@@ -121,6 +122,8 @@ def main_train_func(config, run):
         os.makedirs("saved_models", exist_ok=True)
         with open(os.path.join("saved_models",run.name+".config.json"), "w") as f:
             f.write(status.to_json())
+        if "qat_finetune" in status.config and status.config["qat_finetune"]:
+            os.makedirs("saved_models_QAT", exist_ok=True)
 
     #### Model Creation and device assignment
     status.model, status.device = create_FVV_model(status)
@@ -206,8 +209,8 @@ def main_train_func(config, run):
     # Create initial figures if in debug mode
     if run is None:
         create_figure(status.simple_viz, status)
-        create_figure(status.simple_noviz, status)
-        create_figure(status.simple_mixviz, status)
+        #create_figure(status.simple_noviz, status)
+        #create_figure(status.simple_mixviz, status)
         plt.show()
         
     # Initialize best metrics
@@ -220,7 +223,7 @@ def main_train_func(config, run):
     for epoch in range(status.epoch,config["max_num_epochs"]+1):  # loop over the dataset multiple times    
         status.epoch = epoch
         ### VALIDATION LOOP
-        if epoch % config["validation_each_epoch"] == 0:
+        if epoch % config["validation_each_epoch"] == 0 and epoch > 0:
             bn_loop(status) # data normalization before validation to reset BN layers
             this_loss, this_dice, this_kappa, this_auc = validation_loop(status)
             # Save the model if it is an improvement
@@ -232,6 +235,10 @@ def main_train_func(config, run):
                         if status.config["multigpu"]: state_dict = status.model.module.state_dict()
                         else: state_dict = status.model.state_dict()
                         torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
+                        if "qat_finetune" in status.config and status.config["qat_finetune"]:
+                            model_int8 = torch.ao.quantization.convert(copy.deepcopy(status.model.module).cpu())
+                            model_int8.eval()   # Set the model to evaluation mode
+                            torch.save(model_int8, os.path.join("saved_models_QAT", status.run.name+"-epoch"+str(status.epoch)+".pth"))
                 best_validation_loss = min(best_validation_loss,this_loss)
                 best_global_dice = max(best_global_dice,this_dice)
                 best_kappa = max(this_kappa,best_kappa)
@@ -244,6 +251,10 @@ def main_train_func(config, run):
                 if status.config["multigpu"]: state_dict = status.model.module.state_dict()
                 else: state_dict = status.model.state_dict()
                 torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
+                if "qat_finetune" in status.config and status.config["qat_finetune"]:
+                    model_int8 = torch.ao.quantization.convert(copy.deepcopy(status.model.module).cpu())
+                    model_int8.eval()   # Set the model to evaluation mode
+                    torch.save(model_int8, os.path.join("saved_models_QAT", status.run.name+"-epoch"+str(status.epoch)+".pth"))
             break
             
         ### TRAINING STEP
@@ -253,6 +264,10 @@ def main_train_func(config, run):
     if status.config["multigpu"]: state_dict = status.model.module.state_dict()
     else: state_dict = status.model.state_dict()
     torch.save(state_dict, os.path.join("saved_models",status.run.name+"-epoch"+str(status.epoch)+".pth"))
+    if "qat_finetune" in status.config and status.config["qat_finetune"]:
+        model_int8 = torch.ao.quantization.convert(copy.deepcopy(status.model.module).cpu())
+        model_int8.eval()   # Set the model to evaluation mode
+        torch.save(model_int8, os.path.join("saved_models_QAT", status.run.name+"-epoch"+str(status.epoch)+".pth"))
     if run is not None: wandb.finish()
 
 if __name__ == "__main__":    
@@ -273,7 +288,7 @@ if __name__ == "__main__":
     
     # Configuration settings for the training process
     config = {
-        "train_batch_size": 16,
+        "train_batch_size": 32,
         "test_batch_size": 128,
         "max_num_epochs": int(vars(args)["num_epochs"]), 
         "slices_per_epoch": 128*128,

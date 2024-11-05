@@ -41,15 +41,17 @@ if __name__ == "__main__":
     wandb_project = vars(parser.parse_args())["wandb_project"]
 
     # Determine the number of k-folds based on metadata
-    kfolds = np.max(metadat[:,3])+1
+    kfolds = 10 # np.max(metadat[:,3])+1
 
     # Iterate through each k-fold and run the training script for each fold
-    for k in reversed(range(kfolds)):
+    for k in range(1,kfolds):
         # Create a call list to run the training script "2a-Training.py" with the specified arguments
         call = ["python", "2a-Training.py", "--name", name]
+        ##call += ["--debug", "True"]
         if preload_RAM is not None:
             call += ["--preload_RAM", preload_RAM]
         call += ["--wandb_project", wandb_project, "--kfold", str(k), "--preload_model", list_models[k], 
-               "--compatibility_mode", "True", "--qat_finetune", "True", "--learning_rate", str(0.00001), "--num_epochs", str(15) ]
+               "--compatibility_mode", "True", "--learning_rate", str(0.0001), "--num_epochs", str(100) ]
+        call += ["--qat_finetune", "True"]
         # Execute the training script as a separate process for the current k-fold
         subprocess.run(call)

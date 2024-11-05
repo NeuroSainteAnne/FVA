@@ -32,6 +32,9 @@ import numpy as np
 import onnxruntime
 import pandas as pd
 
+list_pth_models = []
+type_load = "onnx" # autodetect if onnx
+
 # Argument parser for running the script from the command line
 parser = argparse.ArgumentParser(description="DataPrepare",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -52,8 +55,16 @@ list_pats = [os.path.basename(os.path.dirname(i)) for i in list_pats]
 def natural_keys(text):
     return int(re.split(r'(\d+)', text)[1])
 # List all ONNX models for k-fold inference
-list_models = glob.glob(os.path.join("saved_models_ONNX","model*.onnx"))
-list_models.sort(key=natural_keys)
+if type_load == "pth":
+    import sys
+    sys.path.insert(0,os.path.join(os.getcwd(),"../dependencies/smp3d"))
+    from modules.model import create_FVV_model
+    from modules.classes import TrainingObject
+    import torch
+    list_models = list_pth_models
+else:
+    list_models = glob.glob(os.path.join("saved_models_ONNX","model*.onnx"))
+    list_models.sort(key=natural_keys)
 num_kfolds = len(list_models)
 float_k = float(num_kfolds)
 
@@ -72,11 +83,30 @@ for pat in tqdm(sorted(list_pats)):
     # perform inference
     outputs = []
     for model in list_models:
-        if favorite_device == "GPU":
-            ort_session = onnxruntime.InferenceSession(model, providers=['CUDAExecutionProvider','CPUExecutionProvider'])
-        else:
-            ort_session = onnxruntime.InferenceSession(model, providers=['CPUExecutionProvider','CUDAExecutionProvider'])
-        outputs.append(ort_session.run(None,{"modelInput":stacked.astype(np.float32)})[0])
+        if type_load == "onnx":
+            if favorite_device == "GPU":
+                ort_session = onnxruntime.InferenceSession(model, providers=['CUDAExecutionProvider','CPUExecutionProvider'])
+            else:
+                ort_session = onnxruntime.InferenceSession(model, providers=['CPUExecutionProvider','CUDAExecutionProvider'])
+            outputs.append(ort_session.run(None,{"modelInput":stacked.astype(np.float32)})[0])
+        elif type_load == "pth":
+            previous_status_path = model.split("-epoch")[0]+".config.json"
+            with open(previous_status_path, "r") as pv: 
+                previous_status = TrainingObject.from_json(pv.read())
+            # Load the PyTorch model
+            qat_trained = False
+            if "qat_finetune" in previous_status.config.keys() and previous_status.config["qat_finetune"]:
+                previous_status.config["preload_model"] = None
+                previous_status.config["qat_preload_model"] = model
+                qat_trained = True
+            else:
+                previous_status.config["preload_model"] = model
+            previous_status.config["multigpu"] = False
+            model, device = create_FVV_model(previous_status, device="cpu")
+            model.eval()   # Set the model to evaluation mode
+            if qat_trained:
+                model = torch.ao.quantization.convert(model.cpu())
+            outputs.append(model(torch.Tensor(stacked.astype(np.float32))))
     
     patdata = np.stack(outputs).transpose((3,4,1,2,0))
     if patdata.shape[3] == 4: patdata = patdata[:,:,:,(0,2,3)] # backward compatibility
