@@ -22,6 +22,30 @@ import math
 
 from tools import autorescale, nib2rescaled, quick_zstack, compute_color_nib, getLargestCC
    
+default_device = "cpu" # cuda or cpu
+inference_mode = "PTH" # NB quantized models cannot be run on GPU
+
+if inference_mode == "PTH":
+    import sys
+    sys.path.insert(0,os.path.join(os.getcwd(),"modules"))
+    from modules.model import create_FVV_model, QATOverhead
+    from modules.classes import TrainingObject
+    import segmentation_models_pytorch
+    import segmentation_models_pytorch_3d
+    previous_status_path = "PTH_models/model.config.json"
+    with open(previous_status_path, "r") as pv: 
+        previous_status = TrainingObject.from_json(pv.read())
+    previous_status.config["preload_model"] = False
+    previous_status.config["encoder_weights"] = None
+    previous_status.config["multigpu"] = False
+    model, device = create_FVV_model(previous_status, device=default_device)
+    qat_trained = False
+    if "qat_finetune" in previous_status.config.keys() and previous_status.config["qat_finetune"]:
+        model.eval()
+        model = torch.ao.quantization.convert(model.cpu())
+        qat_trained = True
+    print("created model")
+
 t_loaded_modules = datetime.now()
 
 print("CUDA",torch.cuda.is_available())
@@ -63,11 +87,23 @@ x = quick_zstack(norm_b0,norm_b1000)
 t_data_stacked = datetime.now()
 
 print("Inference")
-onnxruntime_outputs = []
-for i in range(10):
-    ort_session = onnxruntime.InferenceSession("./ONNX_models/model"+str(i+1)+".onnx", 
-        providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-    onnxruntime_outputs.append(ort_session.run(None,{"modelInput":x.astype(np.float32)})[0])
+if inference_mode == "ONNX":
+    onnxruntime_outputs = []
+    for i in range(10):
+        if default_device == "cpu":
+            ort_session = onnxruntime.InferenceSession("./ONNX_models/model"+str(i+1)+".onnx", 
+                providers=['CPUExecutionProvider'])
+        else:
+            ort_session = onnxruntime.InferenceSession("./ONNX_models/model"+str(i+1)+".onnx", 
+                providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        onnxruntime_outputs.append(ort_session.run(None,{"modelInput":x.astype(np.float32)})[0])
+else:
+    onnxruntime_outputs = []
+    for i in range(10):
+        model.load_state_dict(torch.load("./PTH_models/model"+str(i+1)+".pth", weights_only=True))
+        result_i = model(torch.Tensor(x.astype(np.float32)).to(device))
+        onnxruntime_outputs.append(result_i)
+        print("ended", i, result_i.shape)
 
 t_inference_ended = datetime.now()
 

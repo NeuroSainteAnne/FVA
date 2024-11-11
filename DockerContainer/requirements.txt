@@ -3,3 +3,6 @@ scikit-image==0.24.0
 onnxruntime-gpu==1.19.2
 dipy==1.9.0
 matplotlib==3.9.2
+segmentation-models-pytorch==0.3.4
+timm-3d==1.0.1
+torcheval==0.0.7
