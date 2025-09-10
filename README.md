@@ -1,10 +1,14 @@
 # FlairVisibilityVolume
 
-## Scientific Background: FVV
+## Scientific Background: FVA
 
-**FLAIR Visibility Volume (FVV)** is a quantitative biomarker that helps in assessing DWI-FLAIR mismatch, a key concept in acute ischemic stroke (AIS) management. DWI-FLAIR mismatch is used to estimate whether a stroke patient may be within the therapeutic window for treatment, especially when the exact time of stroke onset is unknown. FVV is derived *solely from Diffusion-Weighted Imaging (DWI)* data and serves as a surrogate for the DWI-FLAIR mismatch, offering a more objective and automated assessment.
+**FLAIR Visibility Area (FVA)** is a quantitative biomarker that helps in assessing DWI-FLAIR mismatch, a key concept in acute ischemic stroke (AIS) management. DWI-FLAIR mismatch is used to estimate whether a stroke patient may be within the therapeutic window for treatment, especially when the exact time of stroke onset is unknown. FVA is derived *solely from Diffusion-Weighted Imaging (DWI)* data and serves as a surrogate for the DWI-FLAIR mismatch, offering a more objective and automated assessment.
 
-FVV has been trained on a large, multicenter dataset (ETIS) and validated using an independent dataset (WAKE-UP trial), demonstrating high diagnostic accuracy. By using only DWI data, FVV aims to reduce dependency on FLAIR sequences, which are often affected by motion artifacts and may not be available in some emergency situations. The models in this repository are designed to predict FVV, providing an efficient and reliable tool for guiding treatment decisions in AIS patients.
+FVA has been trained on a large, multicenter dataset (ETIS) and validated using an independent dataset (WAKE-UP trial), demonstrating high diagnostic accuracy. By using only DWI data, FVA aims to reduce dependency on FLAIR sequences, which are often affected by motion artifacts and may not be available in some emergency situations. The models in this repository are designed to predict FVA, providing an efficient and reliable tool for guiding treatment decisions in AIS patients.
+
+## Citation
+
+Please cite the original article if you use the content of this repository : [Automated DWI-FLAIR mismatch assessment in stroke using DWI only](https://doi.org/10.1177/23969873251362712) (Benzakoun et al., European Stroke Journal 2025)
 
 ## Repository Structure
 
@@ -23,7 +27,7 @@ The [Model Training](ModelTraining) folder includes Python scripts for training 
 
 The [Docker Container](DockerContainer) folder provides a Docker setup for fast inference using pre-trained models. The Docker container allows users to efficiently run the model inference process without needing to install complex dependencies manually. It is ideal for deployment in production environments or for sharing the inference capabilities with collaborators.
 
-#### Example of synthesis map created with FVV Docker Container
+#### Example of synthesis map created with FVA Docker Container
 <img src="images/synthesis.png?raw=true" width="500" alt="Example of synthesis map">
 The DWI lesion was also visible on FLAIR sequence (no DWI-FLAIR mismatch)
 
