@@ -23,7 +23,7 @@ import math
 from tools import autorescale, nib2rescaled, quick_zstack, compute_color_nib, getLargestCC
    
 default_device = "cpu" # cuda or cpu
-inference_mode = "PTH" # NB quantized models cannot be run on GPU
+inference_mode = "ONNX" # NB quantized models cannot be run on GPU
 
 if inference_mode == "PTH":
     import sys
@@ -185,7 +185,7 @@ for line in axs:
                 ax.text(0.5,0.5,str(round(blobmaskvox*volvox,2)) + "mL",
                         ha='center', va='top', fontsize=18)
             if k == 3:
-                ax.text(0.5,0.5,"Flair Visibility Volume",ha='center', va='bottom', fontsize=15, color="red")
+                ax.text(0.5,0.5,"Flair Visibility Area",ha='center', va='bottom', fontsize=15, color="red")
                 ax.text(0.5,0.5,str(round(vizmaskvox*volvox,2)) + "mL",
                         ha='center', va='top', fontsize=18)
             k += 1
@@ -205,7 +205,7 @@ with open("/app/data/synthesis.txt", "w") as synthfile:
     synthfile.write("VoxVolume="+str(volvox)+"\n")
     synthfile.write("BrainMaskVolume="+str(brainmaskvox*volvox)+"\n")
     synthfile.write("StrokeBlobVolume="+str(blobmaskvox*volvox)+"\n")
-    synthfile.write("FlairVizVolume="+str(vizmaskvox*volvox)+"\n")
+    synthfile.write("FlairVizArea="+str(vizmaskvox*volvox)+"\n")
     synthfile.write("Time-1-Load="+str((t_loaded_modules-t_first).total_seconds())+"\n")
     synthfile.write("Time-2-ScanningDir="+str((t_scanned_directory-t_loaded_modules).total_seconds())+"\n")
     synthfile.write("Time-3-Normalization="+str((t_data_normalized-t_scanned_directory).total_seconds())+"\n")
