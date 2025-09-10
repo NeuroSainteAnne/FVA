@@ -1,4 +1,4 @@
-# FlairVisibilityVolume
+# Flair Visibility Area
 
 ## Scientific Background: FVA
 
