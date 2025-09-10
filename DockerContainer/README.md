@@ -8,7 +8,7 @@ git clone https://github.com/NeuroSainteAnne/FlairVisibilityVolume.git
 cd FlairVisibilityVolume/DockerContainer
 ```
 
-Place the 10 models (model1 to model10.onnx) into the ONNX_models directory.
+Place the 10 models (model1 to model10.onnx) downloaded from the [Releases section](https://github.com/NeuroSainteAnne/FVA/releases) into the ONNX_models directory.
 Then, you can build a container named `FVV` by typing:
 ```
 docker build -t FVV .
