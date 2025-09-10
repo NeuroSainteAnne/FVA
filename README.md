@@ -29,7 +29,7 @@ The DWI lesion was also visible on FLAIR sequence (no DWI-FLAIR mismatch)
 
 ### 3. Model weights
 
-The complete code with model weights, whose training is described in the original paper, can be downloaded in the Releases section.
+The complete code with model weights, whose training is described in the original paper, can be downloaded in the [Releases section](https://github.com/NeuroSainteAnne/FVA/releases).
 
 ## Getting Started
 
