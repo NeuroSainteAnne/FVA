@@ -5,7 +5,7 @@ First, install Docker from the [Docker website](https://docs.docker.com/engine/i
 When you're ready, download the git registry
 ```
 git clone https://github.com/NeuroSainteAnne/FVA.git
-cd FlairVisibilityVolume/DockerContainer
+cd FVA/DockerContainer
 ```
 
 Place the 10 models (model1 to model10.onnx) downloaded from the [Releases section](https://github.com/NeuroSainteAnne/FVA/releases) into the ONNX_models directory.
