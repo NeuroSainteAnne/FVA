@@ -36,5 +36,5 @@ The complete code with model weights, whose training is described in the origina
 To get started with this repository, clone the repository and follow the setup instructions provided in the README files of the respective folders (`ModelTraining` and `DockerContainer`). Detailed setup instructions for creating the appropriate environment are provided.
 
 ## License
-This repository is licensed under the ??? License. Please see the `LICENSE` file for more details.
+This repository is licensed under the Apache 2.0 License. Please see the `LICENSE` file for more details.
 
