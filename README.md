@@ -1,5 +1,7 @@
 # Flair Visibility Area
 
+[![DOI](https://zenodo.org/badge/877805814.svg)](https://doi.org/10.5281/zenodo.23241247)
+
 ## Scientific Background: FVA
 
 **FLAIR Visibility Area (FVA)** is a quantitative biomarker that helps in assessing DWI-FLAIR mismatch, a key concept in acute ischemic stroke (AIS) management. DWI-FLAIR mismatch is used to estimate whether a stroke patient may be within the therapeutic window for treatment, especially when the exact time of stroke onset is unknown. FVA is derived *solely from Diffusion-Weighted Imaging (DWI)* data and serves as a surrogate for the DWI-FLAIR mismatch, offering a more objective and automated assessment.
